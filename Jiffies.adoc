@@ -19,7 +19,7 @@ changes - interrupts are always at the same speed. A very handy feature if your
 CPU suddenly runs at 12 MHz :-)
 
 
-== Jiffy counting Part 1
+== Jiffy counting Part 1a - 50Hz
 
 In the BASIC4 kernel we see that the CPU interrupt vector jumps to E455 and from there to 
 EA31:
@@ -66,15 +66,57 @@ we see that we have:
  Vertical total char rows:	R4+1		$28/40		$32/50
  Rasterlines per character:	R9+1		10		8
  Adjust rasterlines:		R5		0		0
--------------------------------------------------------------------------
  Total cycles per screen			50*(40*10)	50*(50*8)
 						20000		20000
+
 
 Indeed there are 20000 cycles per screen - which is 50Hz at a clock speed of 1 MHz.
 
 
+== Jiffy counting Part 1b - 60Hz
 
+When we look at a 60Hz Editor ROM, e.g. here http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/edit-4-40-n-60hz-901499-01.dis.txt
+we see that the 6/5 fix is in there as well!
 
+ E42E: 20 EA FF  JSR $FFEA	; Advance Clock
+ E431: EE ED 03  INC TIADJ	; Counter to speed TI by 6/5 (40col)
+ E434: AD ED 03  LDA TIADJ	; Counter to speed TI by 6/5 (40col)
+ E437: C9 06     CMP #$06	; 6 IRQ's?
+ E439: D0 1D     BNE L_E458	; No, do normal IRQ
+ E43B: A9 00     LDA #$00	; Reset IRQ adjustment counter
+ E43D: 8D ED 03  STA TIADJ  	; Counter to speed TI by 6/5 (40col)
+ E440: F0 EC     BEQ L_E42E	; Do normal IRQ
+
+But it is not called!
+
+ E452: 6C 90 00  JMP ($0090) 	; Vector: Hardware Interrupt -> $E455
+ E455: 20 EA FF  JSR $FFEA
+
+Instead of a JMP to the correction routine, the Jiffy increment is called directly!
+
+Also, the CRTC is programmed differently:
+
+ ;--------------- CRTC SETUP TABLES
+ ; This table is used to setup the CRTC chip screen parameters.
+ ; The values here configure the screen for 20kHz
+
+ E7B1:           .BYT 31,28,29,0F,20,03,19,1D	; CRTC register data -  40 COL TEXT mode
+ E7B9:           .BYT 00,09,00,00,10,00,00,00	; CRTC register data -  40 COL TEXT mode
+ E7C1:           .BYT 00,00			; CRTC register data -  40 COL TEXT mode
+
+ E7C3:           .BYT 31,28,29,0F,28,05,19,21	; CRTC register data -  40 COL GRAPHICS mode
+ E7CB:           .BYT 00,07,00,00,10,00,00,00	; CRTC register data -  40 COL GRAPHICS mode
+ E7D3:           .BYT 00,00 			; CRTC register data -  40 COL GRAPHICS mode
+
+ Horizontal total chars:	R0+1		$32/50		$32/50
+ Vertical total char rows:	R4+1		$21/33		$29/41
+ Rasterlines per character:	R9+1		10		8
+ Adjust rasterlines:		R5		0		0
+ Total cycles per screen			50*(33*10)	50*(41*8)
+						16500		16400
+
+Interestingly, the number of cycles per screen is either 16500 (upper/lower mode) or 16400 (upper/graphics mode).
+I.e. the screen refresh is not exactly 60Hz, which would be 16667 cycles. 
 
 
 == Jiffy counting part 2
@@ -97,6 +139,7 @@ And then
  F774		LDA $9A
  F776		CMP #$02
  F778		BEQ $F79B
+
  F77A	iF77A	INC $8F
  F77C		BNE $F784
  F77E		INC $8E
@@ -114,10 +157,45 @@ And then
  F796		DEX
  F797		BNE $F794
  F799		BEQ $F7A1
+
  F79B	iF79B	LDA #$00
  F79D		STA $99		; Jiffy clock correction: 623rd 1/60 sec does not increment time
  F79F		STA $9A
 
-Now, this code is strange.
+ ...
 
+ F7AC	sF7AC	.byte 4F 1A 01                 ;o..
+
+Now, this code is strange. 
+The memory map gives these explanations:
+
+ TIME	008D-008F	141-143	Real-Time Jiffy Clock (approx) 1/60 Sec
+ ...
+        0099-009A       152-154 Jiffy clock correction: 623rd 1/60 sec
+	                        does not increment time
+
+Let's go into details.
+
+### F77A-F799 24h timer
+
+The code between F77A and F799 does the TI count as it is already known
+from the discussion from the C64.
+
+1. $F77A: The Jiffy counter at $8F-$8D (interestingly in high byte first) is increased
+2. $F784: The Jiffy counter is compared to the data at $F7AC. This is 5184001 - equivalent to 24h in 1/60s Jiffies, plus 1.
+3. $F792: If the Jiffy counter has reached 24h, it is reset to zero
+
+That is actually easy, it only has a off-by-one error as has been shown for the C64 already in the 8bit show and tell vide.
+
+### F768-F779, F79B 623rd Jiffy correction
+
+In $99/$9A there is a counter that is increased on every interrupt call.
+Once this counter reaches the value 623, the following Jiffy increase is skipped, and the correction counter reset to zero (at $F79B).
+
+So that means that every 623 calls, a Jiffy increase is skipped.
+
+## Summary
+
+1. PET has models with 50Hz and 60Hz screen refresh. The Editor ROM defines the screen refresh, and correcty the Jiffy counter appropriately, so that in average 60 Jiffies per seconds are counted. For 50 Hz models, every 5 Jiffies, a 6th one is added.
+2. There is a strange 622/623 correction in the kernel (that is the same for all 50 and 60Hz models) that is currently not explained, and skips every 623th Jiffy. 
 

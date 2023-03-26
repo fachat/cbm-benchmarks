@@ -1,0 +1,4 @@
+
+For a description of the tests see https://en.wikipedia.org/wiki/Rugg/Feldman_benchmarks
+
+

@@ -1,0 +1,123 @@
+
+= How the time is counted on the Commodore PET
+
+Commodore BASIC and Operating system has two pseudo-variables, TI and TI$ that
+count time. TI is the number of Jiffies (1/60th of a second) since the last boot,
+TI$ the time of day (i.e. wraps at 24h).
+
+As discussed in https://www.youtube.com/watch?v=VkabHdR15xs TI on the C64 counts
+1/60 seconds (using a CIA timer interrupt). For 50Hz (PAL) C64 machines there is
+a correction to account for 50 interrupts per seconds compared to 60 interrupts
+per second on the NTSC C64. To determine the timer value, the C64 kernel counts
+the number of rasterlines per screen, from this determines the PAL/NTSC variant,
+and configures the timer appropriately.
+
+The PET (with CRTC) is even more flexible, as the CRTC timing can be set flexibly.
+And, other than the C64, in the PET, the vertical sync signal of the CRTC output
+is used to interrupt the CPU (which btw makes the PET ignorant of any CPU speed
+changes - interrupts are always at the same speed. A very handy feature if your
+CPU suddenly runs at 12 MHz :-)
+
+
+== Jiffy counting Part 1
+
+In the BASIC4 kernel we see that the CPU interrupt vector jumps to E455 and from there to 
+EA31:
+
+ E452	iE452	JMP ($0090)	; Vector: Hardware Interrupt [3: E62E, 4: E455]
+ E455	iE455	JMP $E431
+
+In EA31, as a first thing, the Jiffy counter is incremented, by calling FFEA, and then
+a 50/60 Hz correction is done. I.e. every 5 interrupts, the Jiffy is increased another
+extra time. This corrects the 50 Hz interrupt to count 60 Jiffies per second.
+
+ E431	iE431	JSR $FFEA	; jmp $f768	udtim	Update System Jiffy Clock
+ E434		INC $F8		; 4.80: Counter to speed TI by 6/5
+ E436		LDA $F8		; 4.80: Counter to speed TI by 6/5
+ E438		CMP #$06
+ E43A		BNE $E458
+ E43C		LDA #$00
+ E43E		STA $F8		; 4.80: Counter to speed TI by 6/5
+ E440		BEQ $E431
+
+This indicates that the ROM disassembly here is taken from a European PET, that has 
+the CRTC programmed to 50Hz.
+
+This can be confirmed by looking at the CRTC configuration table from that same 
+Editor ROM (Exxx is Editor ROM, so the routine above is in the same chip):
+
+; -	Video Chip Setup Table -- e07a		DATA
+
+ E72A		.byte 31 28 29 0F 27 00 19 20  ;1().'.. 
+ E732		.byte 00 09 00 00 10 00 00 00  ;........
+ E73A		.byte 00 00                    ;..
+
+
+; -	Video Chip Setup Table -- e08a		DATA
+
+ E73C		.byte 31 28 29 0F 31 00 19 25  ;1().1..%
+ E744		.byte 00 07 00 00 10 00 00 00  ;........
+ E74C		.byte 00                       ;.
+
+Using the register file information from http://www.6502.org/users/andre/hwinfo/crtc/diffs.html
+we see that we have:
+
+ Horizontal total chars:	R0+1		$32/50		$32/50
+ Vertical total char rows:	R4+1		$28/40		$32/50
+ Rasterlines per character:	R9+1		10		8
+ Adjust rasterlines:		R5		0		0
+-------------------------------------------------------------------------
+ Total cycles per screen			50*(40*10)	50*(50*8)
+						20000		20000
+
+Indeed there are 20000 cycles per screen - which is 50Hz at a clock speed of 1 MHz.
+
+
+
+
+
+
+== Jiffy counting part 2
+
+We ignored going deeper into the ROM routine at $FFEA, where the Jiffies are actually counted.
+That is where we look at now:
+
+ FFEA	iFFEA	JMP $F768	; Update Jiffy Clock
+
+And then
+
+ ; Update Jiffy Clock
+
+ F768	iF768	INC $99		; Jiffy clock correction: 623rd 1/60 sec does not increment time
+ F76A		LDA $99		; Jiffy clock correction: 623rd 1/60 sec does not increment time
+ F76C		BNE $F770
+ F76E		INC $9A
+ F770	iF770	CMP #$6F
+ F772		BNE $F77A
+ F774		LDA $9A
+ F776		CMP #$02
+ F778		BEQ $F79B
+ F77A	iF77A	INC $8F
+ F77C		BNE $F784
+ F77E		INC $8E
+ F780		BNE $F784
+ F782		INC $8D		; Real-Time Jiffy Clock (approx) 1/60 Sec
+ F784	iF784	LDX #$00
+ F786	iF786	LDA $8D,X	; Real-Time Jiffy Clock (approx) 1/60 Sec
+ F788		CMP $F7AC,X	; ?						DATA
+ F78B		BCC $F7A1
+ F78D		INX
+ F78E		CPX #$03
+ F790		BNE $F786
+ F792		LDA #$00
+ F794	iF794	STA $8C,X
+ F796		DEX
+ F797		BNE $F794
+ F799		BEQ $F7A1
+ F79B	iF79B	LDA #$00
+ F79D		STA $99		; Jiffy clock correction: 623rd 1/60 sec does not increment time
+ F79F		STA $9A
+
+Now, this code is strange.
+
+

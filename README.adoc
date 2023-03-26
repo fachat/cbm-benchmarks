@@ -1,0 +1,37 @@
+
+# Commodore PET benchmarks
+
+## bench
+
+A small test program that uses bar graphs to show PET speed.
+
+## Rugg/Feldman benchmarks
+
+This is a set of BASIC benchmarks, where a number of test results to
+compare exist,
+
+## Noel's Retro Lab BASIC benchmark
+
+A small  BASIC program.
+
+## Matt Heffernan's Battle Royale
+
+Another BASIC benchmark that uses Mandelbrot graphic computation
+as test
+
+## A note on measuring
+
+The Commodore PET has, in its operating system, a feature called "TI". 
+This is a BASIC variable (actually a built-in special function) that 
+has the number of Jiffies since the last boot. I.e. this counter is 
+increased on every screen refresh. Therefore this counter depends
+on the screen refresh rate and may 
+
+
+
+## References
+
+For results from other machines see e.g. here https://www.thebyteattic.com/p/agon.html
+
+A discussion of TI and TI$ on the C64/C128 is here https://www.youtube.com/watch?v=VkabHdR15xs
+

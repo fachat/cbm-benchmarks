@@ -1,0 +1,6 @@
+
+For more information see https://github.com/SlithyMatt/multi-mandlebrot and Matt's YouTube series https://www.youtube.com/playlist?list=PLPSrOWYluVLIwjHSJKuO8UU8BTT3uceqU
+
+This BASIC code is derived from the C64 BASIC program, just changing the screen base address and color memory base address to Colour-PET compatible values.
+
+

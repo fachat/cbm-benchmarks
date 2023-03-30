@@ -126,7 +126,7 @@
  13120 va=59392:rem video control register
  13125 ca=59520:rem CRTC register
  13200 rem check 40/80 cols
- 13210 poke32768+40*25,21:rem one byte behind 40 cols
+ 13210 poke32768+1024,21:rem one byte behind 40 screen memory
  13220 print"{clr}"
  13230 v=40
  13240 if peek(32768+40*25)=32 then v=80

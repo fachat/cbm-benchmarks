@@ -40,6 +40,16 @@ extra time. This corrects the 50 Hz interrupt to count 60 Jiffies per second.
  E43E		STA $F8		; 4.80: Counter to speed TI by 6/5
  E440		BEQ $E431
 
+To get clear on what happens, let's start with $F8 set to 1 (one). Then we have:
+
+1. interrupt: increase Jiffy; $F8 increased to 2
+2. interrupt: increase Jiffy; $F8 increased to 3
+3. interrupt: increase Jiffy; $F8 increased to 4
+4. interrupt: increase Jiffy; $F8 increased to 5
+5. interrupt: increase Jiffy; $F8 increased to 6. Here the compare at $E438 makes the code fall through to $E43C. $F8 is set to 0, and it is jumped back to $E431. There the Jiffy is increased, and also $F8 is increased again, to 1. Which is the initial state.
+
+I.e. we have five interrupts, but six Jiffy increases.
+
 This indicates that the ROM disassembly here is taken from a European PET, that has 
 the CRTC programmed to 50Hz.
 

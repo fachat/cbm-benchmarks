@@ -25,8 +25,9 @@ The Commodore PET has, in its operating system, a feature called "TI".
 This is a BASIC variable (actually a built-in special function) that 
 has the number of Jiffies since the last boot. I.e. this counter is 
 increased on every screen refresh. Therefore this counter depends
-on the screen refresh rate and may 
-
+on the screen refresh rate and the code in the kernal to evaluate it.
+A deeper discussion on how to measure time on the PET is in 
+Jiffies.adoc
 
 
 ## References
